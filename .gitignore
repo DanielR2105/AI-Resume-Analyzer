@@ -1,0 +1,14 @@
+# Node (frontend)
+client/node_modules/
+client/build/
+client/.env
+
+# Python (backend)
+server/venv/
+server/.env
+server/__pycache__/
+server/*.pyc
+
+# Mac / Windows system files
+.DS_Store
+Thumbs.db
