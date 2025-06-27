@@ -1,145 +1,118 @@
-import React, { useState, useRef, DragEvent, ChangeEvent, FormEvent } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
-import { Loader2, Upload, FileText } from 'lucide-react';
 
 const ResumeUpload: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState<string>('');
   const [feedback, setFeedback] = useState<string>('');
-  const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
-  const dropRef = useRef<HTMLDivElement | null>(null);
 
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    dropRef.current?.classList.add('border-primary');
-  };
-
-  const handleDragLeave = () => {
-    dropRef.current?.classList.remove('border-primary');
-  };
-
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    dropRef.current?.classList.remove('border-primary');
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && droppedFile.type === 'application/pdf') {
-      setFile(droppedFile);
-      setError('');
-    } else {
-      setError('Only PDF files are allowed.');
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      setFile(acceptedFiles[0]);
     }
-  };
+  }, []);
 
-  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile && selectedFile.type === 'application/pdf') {
-      setFile(selectedFile);
-      setError('');
-    } else {
-      setError('Only PDF files are allowed.');
-    }
-  };
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'application/pdf': ['.pdf'] },
+    maxFiles: 1,
+  });
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!file || !jobDescription.trim()) {
-      setError('Both resume and job description are required.');
-      return;
-    }
+  const handleSubmit = async () => {
+    if (!file || !jobDescription.trim()) return;
 
     const formData = new FormData();
     formData.append('resume', file);
     formData.append('jobDescription', jobDescription);
 
+    setLoading(true);
+    setFeedback('');
+
     try {
-      setLoading(true);
-      setError('');
-      setFeedback('');
-
-      const response = await axios.post('http://localhost:5001/analyze', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
+      const response = await axios.post('http://localhost:5001/analyze', formData);
       setFeedback(response.data.feedback);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Something went wrong.');
+    } catch (error) {
+      console.error(error);
+      setFeedback('There was an error analyzing your resume.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10">
-      <h1 className="text-4xl font-bold mb-8 text-center text-neutral-900">AI Resume Analyzer</h1>
+    <div className="min-h-screen bg-zinc-100 text-zinc-800 font-sans">
+      {/* Sidebar layout */}
+      <div className="flex h-screen">
+        {/* Sidebar */}
+        <aside className="w-64 bg-white shadow-xl p-6 hidden md:flex flex-col border-r border-zinc-200">
+          <h1 className="text-2xl font-bold mb-6">AI Resume Analyzer</h1>
+          <nav className="flex-1 space-y-4 text-sm">
+            <p className="text-zinc-500">Upload a resume and get tailored feedback.</p>
+          </nav>
+          <footer className="text-xs text-zinc-400 mt-auto">
+            &copy; {new Date().getFullYear()} Daniel Rodriguez
+          </footer>
+        </aside>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Drag-and-Drop Zone */}
-        <div
-          ref={dropRef}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className="relative border-2 border-dashed border-outlineVariant rounded-xl p-8 text-center bg-surfaceContainer cursor-pointer transition hover:border-primary"
-          onClick={() => document.getElementById('fileInput')?.click()}
-        >
-          <div className="flex flex-col items-center gap-2">
-            <Upload className="text-primary w-8 h-8" />
-            <p className="text-sm text-onSurfaceVariant">
-              {file ? `Uploaded: ${file.name}` : 'Drag & drop your PDF resume here or click to upload'}
-            </p>
-            <input
-              id="fileInput"
-              type="file"
-              accept=".pdf"
-              onChange={handleFileSelect}
-              hidden
-            />
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto px-4 md:px-10 py-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
+            {/* Upload Section */}
+            <section className="bg-white border border-zinc-100 shadow-xl rounded-3xl p-8 space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Upload Resume (PDF)</label>
+                <div
+                  {...getRootProps()}
+                  className={`border-2 border-dashed rounded-2xl px-6 py-10 text-center cursor-pointer transition-colors duration-200 ${
+                    isDragActive ? 'border-blue-600 bg-blue-50' : 'border-zinc-300 bg-zinc-50'
+                  }`}
+                >
+                  <input {...getInputProps()} />
+                  {file ? (
+                    <p className="text-zinc-700 font-medium">{file.name}</p>
+                  ) : (
+                    <p className="text-zinc-400">Drag & drop or click to select a PDF</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="jobDescription" className="block text-sm font-medium text-zinc-700 mb-2">
+                  Job Description
+                </label>
+                <textarea
+                  id="jobDescription"
+                  className="w-full border border-zinc-300 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={6}
+                  placeholder="Paste the job description here..."
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                />
+              </div>
+
+              <button
+                onClick={handleSubmit}
+                disabled={loading || !file || !jobDescription.trim()}
+                className="w-full py-3 px-6 flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold rounded-2xl shadow hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Analyzing...' : 'Analyze Resume'}
+              </button>
+            </section>
+
+            {/* Feedback Section */}
+            <section className="bg-white border border-zinc-100 shadow-xl rounded-3xl p-8 overflow-y-auto">
+              <h2 className="text-xl font-semibold mb-4">Feedback</h2>
+              {feedback ? (
+                <pre className="text-sm text-zinc-700 whitespace-pre-wrap max-h-[500px] overflow-y-auto">{feedback}</pre>
+              ) : (
+                <p className="text-sm text-zinc-500">Your feedback will appear here after submission.</p>
+              )}
+            </section>
           </div>
-        </div>
-
-        {/* Job Description Textarea */}
-        <div>
-          <label className="block text-sm font-medium text-onSurface mb-1">Job Description</label>
-          <textarea
-            rows={6}
-            placeholder="Paste the job description here..."
-            className="w-full p-4 border border-outlineVariant rounded-xl text-sm focus:ring-2 focus:ring-primary focus:outline-none bg-surface text-onSurface"
-            value={jobDescription}
-            onChange={(e) => setJobDescription(e.target.value)}
-          />
-        </div>
-
-        {/* Submit Button */}
-        <button
-          type="submit"
-          className="w-full flex items-center justify-center gap-2 bg-primary text-white font-medium py-3 rounded-xl transition hover:bg-primaryHover disabled:opacity-50"
-          disabled={loading}
-        >
-          {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <FileText className="h-5 w-5" />}
-          {loading ? 'Analyzing...' : 'Analyze Resume'}
-        </button>
-
-        {/* Error Alert */}
-        {error && (
-          <div className="text-sm text-red-700 bg-red-100 p-3 rounded-lg">
-            {error}
-          </div>
-        )}
-      </form>
-
-      {/* Feedback Section */}
-      {feedback && (
-        <div className="mt-10 bg-surfaceContainer p-5 rounded-xl border border-outlineVariant shadow-sm">
-          <h2 className="text-xl font-semibold mb-3 text-onSurface">Feedback</h2>
-          <pre className="whitespace-pre-wrap text-sm text-onSurfaceVariant">
-            {feedback}
-          </pre>
-        </div>
-      )}
+        </main>
+      </div>
     </div>
   );
 };
