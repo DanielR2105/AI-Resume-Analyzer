@@ -10,6 +10,10 @@ function App() {
         <p>
           Edit <code>src/App.tsx</code> and save to reload.
         </p>
+        <div className="text-3xl font-bold text-blue-500">
+  Tailwind is working!
+</div>
+
         <a
           className="App-link"
           href="https://reactjs.org"
